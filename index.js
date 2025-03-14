@@ -9,6 +9,13 @@ import fs from "fs";
 import { Boom } from "@hapi/boom";
 import express from "express";
 import path from "path";
+import { Pastebin } from "pastedeno";  
+import { dev_api_key, authi, get_prefa, username, user_password } from "./vars/config.js";  
+const pastebin = new Pastebin({  
+  api_dev_key: dev_api_key,  
+  api_user_name: username,  
+  api_user_password: user_password,  
+});  
 import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
