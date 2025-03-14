@@ -10,22 +10,12 @@ import readline from "readline";
 import PastebinAPI from "pastebin-js";
 import fs from "fs";
 import { Boom } from "@hapi/boom";
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
 
-function clearState() {
 
-async function start() {
-  try {
-    /** Initialize auth state */
-    const { state, saveCreds } = await useMultiFileAuthState("./auth_ts");
-
-    /** Create WhatsApp socket */
-    let sock = makeWASocket({
-      auth: state,
-      printQRInTerminal: false,
-      logger: pino({ level: "silent" }),
-      browser: Browsers.macOS("Desktop"),
-    });
 
     
   conn.ev.process(async (events) => {
@@ -72,9 +62,45 @@ async function start() {
     }
 });
 
-    
+conn.ev.on("creds.update", saveCreds);
+const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.get("/", (req, res) => {                  
+    res.sendFile(path.join(__dirname, "public", "dashboard.html"));
+});
+
+app.get("/pair", async (req, res) => { 
+    try {
+        let phone = req.query.code;
+        if (!phone) {
+            res.status(418).json({ message: "_Provide your phone number_📱" });
+            return;
+        }
+
+        await delay(1500);
+        phone = phone.replace(/[^0-9]/g, ""); 
+        
+        if (!conn.authState.creds.registered) {
+            const code = await conn.requestPairingCode(phone);
+            if (!res.headersSent) {
+                res.json({ code: code?.match(/.{1,4}/g)?.join("-") });
+                return;
+            }
+        } else {
+            res.status(400).json({ message: "Already registered" });
+            return;
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Error getting pairing code" });
+        return;
+    }
+});
+
+app.listen(3000, () => console.log("Server running on port 3000"));
+
+startPair();
+  
 
 
-/** Start the WhatsApp connection */
-start();
 
