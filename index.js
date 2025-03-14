@@ -4,19 +4,43 @@ import makeWASocket, {
   DisconnectReason, 
   Browsers
 } from "@whiskeysockets/baileys";
-
 import pino from "pino";
-import readline from "readline";
-import PastebinAPI from "pastebin-js";
 import fs from "fs";
 import { Boom } from "@hapi/boom";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+
+function Clean() {
+  try {
+    const sessionDir = path.join(__dirname, "session");
+    if (fs.existsSync(sessionDir)) {
+      fs.readdirSync(sessionDir).forEach((file) => {
+        const filePath = path.join(sessionDir, file);
+        fs.unlinkSync(filePath);
+      });
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 
-
-
+async function startPair() {
+  try {
+    const sessionDir = path.join(__dirname, "session");
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    let conn = makeWASocket({
+      auth: state,
+      printQRInTerminal: false,
+      logger: pino({ level: "fatal" }),
+      browser: Browsers.macOS("Desktop"),
+    });
     
   conn.ev.process(async (events) => {
     if (events["connection.update"]) {
@@ -63,8 +87,6 @@ import { fileURLToPath } from "url";
 });
 
 conn.ev.on("creds.update", saveCreds);
-const app = express();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.get("/", (req, res) => {                  
     res.sendFile(path.join(__dirname, "public", "dashboard.html"));
 });
@@ -99,8 +121,4 @@ app.get("/pair", async (req, res) => {
 
 app.listen(3000, () => console.log("Server running on port 3000"));
 
-startPair();
-  
-
-
-
+startPair();             
