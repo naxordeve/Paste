@@ -27,91 +27,53 @@ async function start() {
       browser: Browsers.macOS("Desktop"),
     });
 
-    /** Pairing code request if not already registered */
-    if (usePairingCode && !sock.authState.creds.registered) {
-      const phoneNumber = await question("Enter your active WhatsApp number: ");
-      const code = await sock.requestPairingCode(phoneNumber);
-      console.log(`Pairing code: ${code}`);
-    }
-
-    /** Handle connection events */
-    sock.ev.process(async (events) => {
-      if (events["connection.update"]) {
+    
+  conn.ev.process(async (events) => {
+    if (events["connection.update"]) {
         const update = events["connection.update"];
         const { connection, lastDisconnect } = update;
-
-        /** If connection is open, upload session file to Pastebin */
         if (connection === "open") {
-          await delay(10000);
-          if (fs.existsSync(authFile)) {
-            const fileData = fs.readFileSync(authFile, 'utf8');
-            let link = await pastebin.createPaste({
-              text: fileData,
-              title: "session_id",
-              format: null,
-              privacy: 1,
-            });
-            console.log(`Session ID link: ${link}`);
+            await delay(10000);
+            if (fs.existsSync(v)) {
+                const db = fs.readFileSync(v, "utf8");
+                let _cxl = await pastebin.createPaste({
+                    text: db,
+                    title: "session_id",
+                    format: null,
+                    privacy: 1,  
+                    expiration: "N"  
+                });
 
-            const sessionID = link.replace("https://pastebin.com/", "");
-            await sock.sendMessage(sock.user.id, { text: `_session_id:_ ${sessionID}` });
-            process.exit(0);
-          } else {
-            console.error("Auth file not found!");
-          }
+                const get_id = `${get_prefa}${_cxl.trim().replace("https://pastebin.com/", "")}`;
+                if (conn.user?.id) {
+                    await conn.sendMessage(conn.user.id, {
+                        text: `*Note:* Don't share this _id with anyone\n *_Session ID_*: ${get_id}`
+                    });
+                } else {
+                    console.error("_id is undefined_");
+                    process.exit(0);
+                }
+            }
         }
 
-        /** Handle disconnection cases */
         if (connection === "close") {
-          let reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
-          switch (reason) {
-            case DisconnectReason.connectionClosed:
-              console.log('[Connection closed, reconnecting....!]');
-              start();
-              break;
-            case DisconnectReason.connectionLost:
-              console.log('[Connection lost, reconnecting....!]');
-              start();
-              break;
-            case DisconnectReason.loggedOut:
-              console.log('[Logged out, clearing state....]');
-              clearState();
-              process.exit(0);
-              break;
-            case DisconnectReason.restartRequired:
-              console.log('[Restart required, restarting....]');
-              start();
-              break;
-            case DisconnectReason.timedOut:
-              console.log('[Timed out, reconnecting....]');
-              start();
-              break;
-            case DisconnectReason.badSession:
-              console.log('[Bad session, clearing state and restarting....]');
-              clearState();
-              start();
-              break;
-            case DisconnectReason.connectionReplaced:
-              console.log('[Connection replaced, restarting....]');
-              start();
-              break;
-            default:
-              console.error('[Unknown disconnect reason, restarting....]');
-              start();
-              break;
-          }
+            const _why = new Boom(lastDisconnect?.error)?.output?.statusCode;
+            const reason = DisconnectReason[_why] || "unknown reason 😂";
+            console.log(`Connection closed: ${reason}`);
+            if (_why !== DisconnectReason.loggedOut) {
+                console.log("Retrying connection...");
+                await delay(3000);
+                startPair();
+            } else {
+                Clean();
+                process.exit(0);
+            }
         }
-      }
-    });
+    }
+});
 
-    /** Update credentials when needed */
-    sock.ev.on("creds.update", saveCreds);
+    
 
-  } catch (error) {
-    console.error("An error occurred:", error);
-    process.exit(1);
-  }
-}
 
 /** Start the WhatsApp connection */
 start();
